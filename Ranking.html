@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Top Pokémon by Type – Generational Scrollable Rankings</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+    /* ─────────────────────────────────────────────────────────────
+       coded with the help of Chat-GPT
+    ───────────────────────────────────────────────────────────── */
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Noto Sans KR", sans-serif;
+        background-color: #f5f6fa;
+    }
+    h2 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 20px;
+        color: #333;
+    }
+    #controls {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    label {
+        margin-right: 8px;
+        font-size: 14px;
+        color: #333;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
+    }
+    input[type="checkbox"] {
+        margin-right: 4px;
+        vertical-align: middle;
+        width: 16px;
+        height: 16px;
+    }
+    select, input[type="number"] {
+        margin-right: 12px;
+        font-size: 14px;
+        height: 28px;
+        line-height: 28px;
+    }
+    #search-index {
+        width: 80px;
+        padding: 0 6px;
+    }
+    #goBtn {
+        margin-right: 12px;
+        padding: 4px 12px;
+        font-size: 14px;
+        cursor: pointer;
+        border: 1px solid #999;
+        background-color: #ffffff;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    #goBtn:hover {
+        background-color: #e0e0e0;
+    }
+    #countDisplay {
+        margin-left: auto;
+        font-weight: bold;
+        font-size: 14px;
+        color: #333;
+    }
+    .scroll-btn {
+        margin-left: 12px;
+        padding: 4px 8px;
+        font-size: 16px;
+        cursor: pointer;
+        border: 1px solid #999;
+        background-color: #ffffff;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    .scroll-btn:hover {
+        background-color: #e0e0e0;
+    }
+
+    #chart-container {
+        border: 1px solid #ccc;
+        position: relative;
+        width: 100%;
+        height: 400px;
+        margin-bottom: 16px;
+        background-color: #ffffff;
+        overflow: hidden;
+    }
+    #bar-chart {
+        width: 100%;
+        height: 100%;
+    }
+    #scrollExp {
+        position: absolute;
+        bottom: 8px;
+        right: 12px;
+        font-size: 12px;
+        color: #555;
+        background-color: rgba(255,255,255,0.8);
+        padding: 4px 6px;
+        border-radius: 4px;
+    }
+
+    #table-container {
+        border: 1px solid #ccc;
+        background-color: #ffffff;
+        overflow: visible;
+        height: 300px;
+        position: relative;
+        margin-bottom: 40px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        color: #333;
+        background-color: #ffffff;
+    }
+    th {
+        background-color: #f0f0f0;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    tr:nth-child(even) td {
+        background-color: #fafafa;
+    }
+    tr:hover td {
+        background-color: #f1fdfd;
+    }
+    a.pokemon-link {
+        text-decoration: none;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .legendary-indicator {
+        margin-left: 6px;
+        color: #e63946;
+        font-size: 12px;
+        font-weight: bold;
+        vertical-align: middle;
+        line-height: 1;
+    }
+    .highlight-row td {
+        background-color: #ffeaa7 !important;
+    }
+    .highlight-bar rect.bar-val {
+        stroke: #e63946;
+        stroke-width: 3px;
+    }
+
+    .popup-tooltip {
+        position: absolute;
+        pointer-events: none;
+        background-color: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.4em;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        z-index: 10;
+    }
+</style>
+</head>
+<body>
+    <h2>Top Pokémon by Type – Generational Scrollable Rankings</h2>
+    
+    <div id="controls">
+        <label for="gen-select">세대:</label>
+        <select id="gen-select">
+            <option value="all">All</option>
+            <option value="1">1세대</option>
+            <option value="2">2세대</option>
+            <option value="3">3세대</option>
+            <option value="4">4세대</option>
+            <option value="5">5세대</option>
+            <option value="6">6세대</option>
+            <option value="7">7세대</option>
+            <option value="1-2">1~2세대</option>
+            <option value="1-4">1~4세대</option>
+            <option value="1-6">1~6세대</option>
+        </select>
+
+        <label for="type-select">타입:</label>
+        <select id="type-select">
+            <option value="all">All</option>
+            <option value="normal">Normal</option>
+            <option value="fire">Fire</option>
+            <option value="water">Water</option>
+            <option value="electric">Electric</option>
+            <option value="grass">Grass</option>
+            <option value="ice">Ice</option>
+            <option value="fighting">Fighting</option>
+            <option value="poison">Poison</option>
+            <option value="ground">Ground</option>
+            <option value="flying">Flying</option>
+            <option value="psychic">Psychic</option>
+            <option value="bug">Bug</option>
+            <option value="rock">Rock</option>
+            <option value="ghost">Ghost</option>
+            <option value="dragon">Dragon</option>
+            <option value="dark">Dark</option>
+            <option value="steel">Steel</option>
+            <option value="fairy">Fairy</option>
+        </select>
+
+        <label>
+            <input type="checkbox" id="legendaryOnly" /> 전설만 보기
+        </label>
+        <label>
+            <input type="checkbox" id="excludeLegendary" /> 전설 제외
+        </label>
+
+        <label for="search-index">검색:</label>
+        <input type="number" id="search-index" min="1" placeholder="번호 입력" />
+        <button id="goBtn">이동</button>
+
+        <button id="upBtn" class="scroll-btn">↑</button>
+        <button id="downBtn" class="scroll-btn">↓</button>
+
+        <span id="countDisplay">총 0개</span>
+    </div>
+    
+    <div id="chart-container">
+        <svg id="bar-chart"></svg>
+        <div id="scrollExp">스크롤 or 버튼으로 상위 10위 이동 ↕</div>
+    </div>
+
+    <div id="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>순위</th>
+                    <th>이름</th>
+                    <th>도감 번호</th>
+                    <th>어빌리티</th>
+                    <th>총합 스탯</th>
+                    <th>HP</th>
+                    <th>공격</th>
+                    <th>방어</th>
+                    <th>특수공격</th>
+                    <th>특수방어</th>
+                    <th>스피드</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <div class="popup-tooltip" id="tooltip"></div>
+
+    <script>
+        // given by Chat-GPT
+        const typeColorMap = {
+            normal:   "#A8A77A",
+            fire:     "#EE8130",
+            water:    "#6390F0",
+            electric: "#F7D02C",
+            grass:    "#7AC74C",
+            ice:      "#96D9D6",
+            fighting: "#C22E28",
+            poison:   "#A33EA1",
+            ground:   "#E2BF65",
+            flying:   "#A98FF3",
+            psychic:  "#F95587",
+            bug:      "#A6B91A",
+            rock:     "#B6A136",
+            ghost:    "#735797",
+            dragon:   "#6F35FC",
+            dark:     "#705746",
+            steel:    "#B7B7CE",
+            fairy:    "#D685AD"
+        };
+
+        const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv";
+
+        let allData = [];
+        let currentGen = "all";
+        let currentType = "all";
+        let legendaryOnly = false;
+        let excludeLegendary = false;
+        let filteredSorted = [];
+        let startIndex = 0;
+        const STEP = 1;
+
+        let svg, xScale, yScale, chartWidth, chartHeight, margin;
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv(csvUrl).then(data => {
+            data.forEach(d => {
+                d.base_total =+ d.base_total;
+                d.pokedex_number =+ d.pokedex_number;
+                d.type1 = d.type1.toLowerCase();
+                d.type2 = d.type2 ? d.type2.toLowerCase() : "";
+                d.abilities = d.abilities;
+                d.generation =+ d.generation;
+                d.is_legendary = (d.is_legendary === "1" || d.is_legendary === "true");
+                d.hp =+ d.hp;
+                d.attack =+ d.attack;
+                d.defense =+ d.defense;
+                d.sp_attack =+ d.sp_attack;
+                d.sp_defense =+ d.sp_defense;
+                d.speed =+ d.speed;
+            });
+            allData = data;
+
+            setupScales();
+            setupEventListeners();
+            updateFilteredSorted();
+            renderAll();
+        });
+
+        function setupScales() {
+            svg = d3.select("#bar-chart");
+            margin = {top: 20, right: 20, bottom: 30, left: 100};
+            chartWidth = document.getElementById("chart-container").clientWidth - margin.left - margin.right;
+            chartHeight = document.getElementById("chart-container").clientHeight - margin.top - margin.bottom;
+
+            svg
+            .attr("width", chartWidth + margin.left + margin.right)
+            .attr("height", chartHeight + margin.top + margin.bottom);
+
+            xScale = d3.scaleLinear().range([0, chartWidth]);
+            yScale = d3.scaleBand().domain(d3.range(10)).range([0, chartHeight]).padding(0.1);
+        }
+
+        function updateFilteredSorted() {
+            filteredSorted = allData.filter(d => {
+                let genMatch = false;
+                if (currentGen === "all") {
+                    genMatch = true;
+                } 
+                else if (currentGen.includes("-")) {
+                    const [start, end] = currentGen.split("-").map(Number);
+                    genMatch = (d.generation >= start && d.generation <= end);
+                } 
+                else {
+                    genMatch = (d.generation === +currentGen);
+                }
+
+                const typeMatch = (currentType === "all") || (d.type1 === currentType) || (d.type2 === currentType);
+
+                let legendMatch = true;
+                if (legendaryOnly) {
+                    legendMatch = d.is_legendary;
+                }
+                else if (excludeLegendary) {
+                    legendMatch = !d.is_legendary;
+                }
+
+                return genMatch && typeMatch && legendMatch;
+            });
+
+            filteredSorted.sort((a, b) => b.base_total - a.base_total);
+
+            d3.select("#countDisplay").text(`총 ${filteredSorted.length}개`);
+
+            if (startIndex > filteredSorted.length - 10) {
+                startIndex = Math.max(0, filteredSorted.length - 10);
+            }
+            if (startIndex < 0) {
+                startIndex = 0;
+            }
+        }
+
+        function renderAll() {
+            renderChart();
+            renderTable();
+            hideTooltip();
+        }
+
+        function renderChart() {
+            const sliceData = filteredSorted.slice(startIndex, startIndex + 10);
+            const maxTotal  = d3.max(sliceData, d => d.base_total) || 0;
+            xScale.domain([0, maxTotal * 1.05]);
+            
+            svg.on("mouseleave", () => {
+                d3.selectAll(".highlight-row").classed("highlight-row", false);
+                d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+                hideTooltip();
+            });
+            
+            const bars = svg.selectAll(".bar-group")
+                .data(sliceData, d => d.name);
+
+            bars.exit().remove();
+
+            const barsEnter = bars.enter()
+                .append("g")
+                .attr("class", "bar-group")
+                .attr("data-name", d => d.name)
+                .attr("transform", (d, i) => `translate(${margin.left}, ${margin.top + yScale(i)})`)
+                .on("mouseover", (event, d) => {
+                    d3.selectAll(".highlight-row").classed("highlight-row", false);
+                    d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+
+                    highlightRow(d.name, true);
+                    highlightBar(d.name, true);
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mousemove", (event, d) => {
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", () => {
+                    highlightRow(d.name, false);
+                    highlightBar(d.name, false);
+                    hideTooltip();
+                
+                })
+                .on("mouseleave", (event, d) => {
+                    highlightRow(d.name, false);
+                    highlightBar(d.name, false);
+                    hideTooltip();
+                });
+
+            barsEnter.append("rect")
+                .attr("class", "bar-bg")
+                .attr("height", yScale.bandwidth())
+                .attr("width", 0)
+                .attr("fill", "#e0e0e0");
+
+            barsEnter.append("rect")
+                .attr("class", "bar-val")
+                .attr("height", yScale.bandwidth())
+                .attr("width", 0)
+                .attr("fill", d => {
+                    if (currentType === "all") {
+                        return typeColorMap[d.type1] || "#2a9d8f";
+                    }
+                    return typeColorMap[currentType] || "#2a9d8f";
+                });
+
+            barsEnter.append("text")
+                .attr("class", "bar-label")
+                .attr("x", 5)
+                .attr("y", yScale.bandwidth() / 2 + 4)
+                .attr("fill", "white")
+                .style("font-size", "12px")
+                .style("cursor", "pointer")
+                .text(d => `${d.name} (${d.base_total})`)
+                .on("click", (event, d) => {
+                    window.location.href = `pokemon.html?name=${encodeURIComponent(d.name)}`;
+                })
+                .on("mouseover", (event, d) => {
+                    d3.selectAll(".highlight-row").classed("highlight-row", false);
+                    d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+
+                    highlightRow(d.name, true);
+                    highlightBar(d.name, true);
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mousemove", (event, d) => {
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", () => {
+                    highlightRow(d.name, false);
+                    highlightBar(d.name, false);
+                    hideTooltip();
+                });
+
+            const barsMerge = barsEnter.merge(bars);
+            barsMerge.transition()
+                .duration(300)
+                .attr("transform", (d, i) => `translate(${margin.left}, ${margin.top + yScale(i)})`);
+
+            barsMerge.select("rect.bar-bg")
+                .transition()
+                .duration(300)
+                .attr("width", chartWidth);
+
+            barsMerge.select("rect.bar-val")
+                .transition()
+                .duration(300)
+                .attr("width", d => xScale(d.base_total));
+
+            barsMerge.select("text.bar-label")
+                .transition()
+                .duration(300)
+                .attr("y", yScale.bandwidth() / 2 + 4);
+        }
+
+        function renderTable() {
+            const sliceData = filteredSorted.slice(startIndex, startIndex + 10);
+            const tbody = d3.select("#table-body");
+            tbody.selectAll("tr").remove();
+
+            sliceData.forEach((d, i) => {
+                const rank = startIndex + i + 1;
+                const tr = tbody.append("tr")
+                .attr("data-name", d.name)
+                .on("mouseover", (event) => {
+                    d3.selectAll(".highlight-row").classed("highlight-row", false);
+                    d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+
+                    highlightRow(d.name, true);
+                    highlightBar(d.name, true);
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mousemove", (event) => {
+                    showTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", () => {
+                    highlightRow(d.name, false);
+                    highlightBar(d.name, false);
+                    hideTooltip();
+                });
+
+                tr.append("td").text(rank);
+
+                const nameCell = tr.append("td");
+                nameCell.append("a")
+                    .attr("class", "pokemon-link")
+                    .text(d.name)
+                    .style("color", () => {
+                        if (currentType === "all") {
+                            return typeColorMap[d.type1] || "#2a9d8f";
+                        }
+                        return typeColorMap[currentType] || "#2a9d8f";
+                    })
+                    .on("click", () => {
+                        window.location.href = `pokemon.html?name=${encodeURIComponent(d.name)}`;
+                    });
+
+                if (d.is_legendary) {
+                    nameCell.append("span")
+                        .attr("class", "legendary-indicator")
+                        .text("★");
+                }
+
+                tr.append("td").text(d.pokedex_number);
+
+                tr.append("td").text(d.abilities);
+
+                tr.append("td")
+                    .text(d.base_total)
+                    .style("color", () => {
+                        if (currentType === "all"){ 
+                            return typeColorMap[d.type1] || "#333";
+                        }
+                        return typeColorMap[currentType] || "#333";
+                    });
+
+                tr.append("td").text(d.hp);
+                tr.append("td").text(d.attack);
+                tr.append("td").text(d.defense);
+                tr.append("td").text(d.sp_attack);
+                tr.append("td").text(d.sp_defense);
+                tr.append("td").text(d.speed);
+            });
+        }
+
+        function setupEventListeners() {
+            d3.select("#gen-select").on("change", function() {
+                currentGen = this.value;
+                startIndex = 0;
+                updateFilteredSorted();
+                renderAll();
+            });
+
+            d3.select("#type-select").on("change", function() {
+                currentType = this.value;
+                startIndex = 0;
+                updateFilteredSorted();
+                renderAll();
+            });
+
+            d3.select("#legendaryOnly").on("change", function() {
+                legendaryOnly = this.checked;
+                if (legendaryOnly) {
+                    excludeLegendary = false;
+                    d3.select("#excludeLegendary").property("checked", false);
+                }
+                startIndex = 0;
+                updateFilteredSorted();
+                renderAll();
+            });
+
+            d3.select("#excludeLegendary").on("change", function() {
+                excludeLegendary = this.checked;
+                if (excludeLegendary) {
+                    legendaryOnly = false;
+                    d3.select("#legendaryOnly").property("checked", false);
+                }
+                startIndex = 0;
+                updateFilteredSorted();
+                renderAll();
+            });
+
+            d3.select("#goBtn").on("click", () => {
+                const inputVal = parseInt(d3.select("#search-index").property("value"));
+                if (isNaN(inputVal) || inputVal < 1) {
+                    alert("1 이상의 숫자를 입력해 주세요.");
+                    return;
+                }
+                let newIndex = inputVal - 1;
+                const maxStart = Math.max(0, filteredSorted.length - 10);
+                if (newIndex > maxStart) {
+                    newIndex = maxStart;
+                }
+                if (newIndex < 0) {
+                    newIndex = 0;
+                }
+                startIndex = newIndex;
+                renderAll();
+            });
+
+            const chartContainer = document.getElementById("chart-container");
+            chartContainer.addEventListener("wheel", function(event) {
+                event.preventDefault();
+
+                d3.selectAll(".highlight-row").classed("highlight-row", false);
+                d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+                hideTooltip();
+
+                if (event.deltaY < 0) {
+                    if (startIndex - STEP >= 0) {
+                        startIndex -= STEP;
+                        renderAll();
+                    }
+                } 
+                else {
+                    const maxStart = Math.max(0, filteredSorted.length - 10);
+                    if (startIndex + STEP <= maxStart) {
+                        startIndex += STEP;
+                        renderAll();
+                    }
+                }
+            });
+
+            const tableContainer = document.getElementById("table-container");
+            tableContainer.addEventListener("wheel", function(event) {
+                event.preventDefault();
+                d3.selectAll(".highlight-row").classed("highlight-row", false);
+                d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+                hideTooltip();
+
+                if (event.deltaY < 0) {
+                    if (startIndex - STEP >= 0) {
+                        startIndex -= STEP;
+                        renderAll();
+                    }
+                } 
+                else {
+                    const maxStart = Math.max(0, filteredSorted.length - 10);
+                    if (startIndex + STEP <= maxStart) {
+                        startIndex += STEP;
+                        renderAll();
+                    }
+                }
+            });
+
+            d3.select("#upBtn").on("click", () => {
+                d3.selectAll(".highlight-row").classed("highlight-row", false);
+                d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+                hideTooltip();
+
+                if (startIndex - STEP >= 0) {
+                    startIndex -= STEP;
+                    renderAll();
+                }
+            });
+            d3.select("#downBtn").on("click", () => {
+                d3.selectAll(".highlight-row").classed("highlight-row", false);
+                d3.selectAll(".highlight-bar").classed("highlight-bar", false);
+                hideTooltip();
+
+                const maxStart = Math.max(0, filteredSorted.length - 10);
+                if (startIndex + STEP <= maxStart) {
+                    startIndex += STEP;
+                    renderAll();
+                }
+            });
+        }
+
+        function highlightRow(name, highlight) {
+            d3.select(`tr[data-name="${CSS.escape(name)}"]`)
+                .classed("highlight-row", highlight);
+        }
+        function highlightBar(name, highlight) {
+            d3.select(`.bar-group[data-name="${CSS.escape(name)}"]`)
+                .classed("highlight-bar", highlight);
+        }
+
+
+        function showTooltip(d, pageX, pageY) {
+            const left = pageX + 12;
+            const top  = pageY + 12;
+            tooltip
+                .style("left", left + "px")
+                .style("top", top + "px")
+                .style("opacity", 1)
+                .html(`
+                    <strong>${d.name}</strong> ${d.is_legendary ? "(전설)" : ""}<br/>
+                    Gen ${d.generation}<br/>
+                    도감 번호: ${d.pokedex_number}<br/>
+                    어빌리티: ${d.abilities}<br/>
+                    총합 스탯: ${d.base_total}<br/>
+                    HP: ${d.hp}, 공격: ${d.attack}<br/>
+                    방어: ${d.defense}, 특수공격: ${d.sp_attack}<br/>
+                    특수방어: ${d.sp_defense}, 스피드: ${d.speed}
+                    `);
+        }
+        function hideTooltip() {
+            tooltip.style("opacity", 0);
+        }
+    </script>
+</body>
+</html>

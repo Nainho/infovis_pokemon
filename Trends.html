@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stat Trends by Type & Generation – Dual‐Type Comparison</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+    /* ─────────────────────────────────────────────────────────────
+       coded with the help of Chat-GPT
+    ───────────────────────────────────────────────────────────── */
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Noto Sans KR", sans-serif;
+        background-color: #f5f6fa;
+    }
+    h1 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 20px;
+        color: #333;
+    }
+    #controls {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+    label {
+        margin-right: 8px;
+        font-size: 14px;
+        color: #333;
+    }
+    select, input[type="checkbox"] {
+        margin-right: 12px;
+        font-size: 14px;
+    }
+    #countDisplay {
+        margin-left: auto;
+        font-weight: bold;
+        font-size: 14px;
+        color: #333;
+    }
+
+    #tooltip {
+        position: absolute;
+        pointer-events: none;
+        background-color: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.4em;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        z-index: 10;
+    }
+
+    #chart-container {
+        border: 1px solid #ccc;
+        background-color: #ffffff;
+        position: relative;
+        width: 100%;
+        height: 400px;
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+    #line-chart {
+        width: 100%;
+        height: 100%;
+    }
+
+    #table-info {
+        font-size: 14px;
+        margin-bottom: 6px;
+        color: #333;
+    }
+    #table-container {
+        border: 1px solid #ccc;
+        background-color: #ffffff;
+        overflow-y: auto;
+        max-height: 320px;
+        position: relative;
+        margin-top: 12px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        color: #333;
+        background-color: #ffffff;
+    }
+    th {
+        background-color: #f0f0f0;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    tr:nth-child(even) td {
+        background-color: #fafafa;
+    }
+    tr:hover td {
+        background-color: #f1fdfd;
+    }
+    a.pokemon-link {
+        text-decoration: none;
+        font-weight: bold;
+        cursor: pointer;
+        color: #2a9d8f;
+    }
+    .legendary-indicator {
+        margin-left: 4px;
+        color: #e63946;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .highlight-cell {
+        background-color: #ffeaa7 !important;
+    }
+    .highlight-bar rect.bar-val {
+        stroke: #e63946;
+        stroke-width: 3px;
+    }
+    </style>
+</head>
+<body>
+
+    <h1>Stat Trends by Type & Generation – Dual‐Type Comparison</h1>
+
+    <div id="controls">
+        <label for="type1-select">타입1:</label>
+        <select id="type1-select">
+            <option value="all">All</option>
+            <option value="normal">Normal</option>
+            <option value="fire">Fire</option>
+            <option value="water">Water</option>
+            <option value="electric">Electric</option>
+            <option value="grass">Grass</option>
+            <option value="ice">Ice</option>
+            <option value="fighting">Fighting</option>
+            <option value="poison">Poison</option>
+            <option value="ground">Ground</option>
+            <option value="flying">Flying</option>
+            <option value="psychic">Psychic</option>
+            <option value="bug">Bug</option>
+            <option value="rock">Rock</option>
+            <option value="ghost">Ghost</option>
+            <option value="dragon">Dragon</option>
+            <option value="dark">Dark</option>
+            <option value="steel">Steel</option>
+            <option value="fairy">Fairy</option>
+        </select>
+
+        <label for="type2-select">타입2:</label>
+        <select id="type2-select">
+            <option value="none">None</option>
+            <option value="all">All</option>
+            <option value="normal">Normal</option>
+            <option value="fire">Fire</option>
+            <option value="water">Water</option>
+            <option value="electric">Electric</option>
+            <option value="grass">Grass</option>
+            <option value="ice">Ice</option>
+            <option value="fighting">Fighting</option>
+            <option value="poison">Poison</option>
+            <option value="ground">Ground</option>
+            <option value="flying">Flying</option>
+            <option value="psychic">Psychic</option>
+            <option value="bug">Bug</option>
+            <option value="rock">Rock</option>
+            <option value="ghost">Ghost</option>
+            <option value="dragon">Dragon</option>
+            <option value="dark">Dark</option>
+            <option value="steel">Steel</option>
+            <option value="fairy">Fairy</option>
+        </select>
+
+        <label for="stat-select">스탯 선택:</label>
+        <select id="stat-select">
+            <option value="base_total">Total</option>
+            <option value="hp">HP</option>
+            <option value="attack">Attack</option>
+            <option value="defense">Defense</option>
+            <option value="sp_attack">Sp. Atk</option>
+            <option value="sp_defense">Sp. Def</option>
+            <option value="speed">Speed</option>
+        </select>
+
+        <label><input type="checkbox" id="legendaryOnly" /> 전설만 보기</label>
+        <label><input type="checkbox" id="excludeLegendary" /> 전설 제외</label>
+
+        <span id="countDisplay"></span>
+    </div>
+
+    <div id="chart-container">
+        <svg id="line-chart"></svg>
+    </div>
+
+
+    <div id="table-info">세대, 타입1·타입2, 스탯을 선택해주세요.</div>
+
+    <div id="table-container">
+        <table>
+            <thead>
+                <tr>
+                <th>순위</th>
+                <th>이름</th>
+                <th>도감 번호</th>
+                <th>HP</th>
+                <th>Attack</th>
+                <th>Defense</th>
+                <th>Sp. Atk</th>
+                <th>Sp. Def</th>
+                <th>Speed</th>
+                <th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <div id="tooltip"></div>
+
+
+    <script>
+        // given by Chat-GPT
+        const typeColorMap = {
+            normal:   "#A8A77A",
+            fire:     "#EE8130",
+            water:    "#6390F0",
+            electric: "#F7D02C",
+            grass:    "#7AC74C",
+            ice:      "#96D9D6",
+            fighting: "#C22E28",
+            poison:   "#A33EA1",
+            ground:   "#E2BF65",
+            flying:   "#A98FF3",
+            psychic:  "#F95587",
+            bug:      "#A6B91A",
+            rock:     "#B6A136",
+            ghost:    "#735797",
+            dragon:   "#6F35FC",
+            dark:     "#705746",
+            steel:    "#B7B7CE",
+            fairy:    "#D685AD"
+        };
+
+        const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv";
+
+        let allData = [];
+        let currentType1 = "all";
+        let currentType2 = "none";
+        let currentStat = "base_total";
+        let legendaryOnly = false;
+        let excludeLegendary = false;
+
+        let genStats1 = [];
+        let genStats2 = [];
+
+        let svg, xScale, yScale, xAxisGroup, yAxisGroup, lineGen1, lineGen2;
+        let margin = {top: 20, right: 30, bottom: 40, left: 60};
+        let chartWidth, chartHeight;
+
+        const tooltip = d3.select("#tooltip");
+
+        const type1Select = d3.select("#type1-select");
+        const type2Select = d3.select("#type2-select");
+        const statSelect  = d3.select("#stat-select");
+        const legendaryCheckbox = d3.select("#legendaryOnly");
+        const excludeLegendCheckbox = d3.select("#excludeLegendary");
+        const countDisplay = d3.select("#countDisplay");
+        const tableInfo    = d3.select("#table-info");
+        const tableBody    = d3.select("#table-body");
+
+
+        d3.csv(csvUrl).then(data => {
+            data.forEach(d => {
+                d.base_total=+ d.base_total;
+                d.hp =+ d.hp;
+                d.attack =+ d.attack;
+                d.defense =+ d.defense;
+                d.sp_attack =+ d.sp_attack;
+                d.sp_defense =+ d.sp_defense;
+                d.speed =+ d.speed;
+                d.pokedex_number = +d.pokedex_number;
+                d.height_m =+ d.height_m;
+                d.weight_kg =+ d.weight_kg;
+                d.japanese_name = d.japanese_name;
+                d.abilities = d.abilities;
+                d.type1 = d.type1.toLowerCase();
+                d.type2 = d.type2 ? d.type2.toLowerCase() : "";
+                d.generation = +d.generation;
+                d.is_legendary = (d.is_legendary === "1" || d.is_legendary === "true");
+            });
+            allData = data;
+
+            initChart();
+            computeGenStats();
+            renderChart();
+            setupEventListeners();
+        });
+
+        function computeGenStats() {
+            genStats1 = [];
+            genStats2 = [];
+
+            for (let gen = 1; gen <= 7; gen++) {
+                let filtered1 = allData.filter(d =>
+                    d.generation === gen &&
+                    (currentType1 === "all" || d.type1 === currentType1 || d.type2 === currentType1) &&
+                    (!legendaryOnly || d.is_legendary) &&
+                    (!excludeLegendary || !d.is_legendary)
+                );
+                const values1 = filtered1.map(d => d[currentStat]);
+                const count1 = values1.length;
+                const mean1 = count1 ? d3.sum(values1) / count1 : 0;
+                const var1 = count1 ? d3.sum(values1.map(v => (v - mean1) * (v - mean1))) / count1 : 0;
+                const std1 = Math.sqrt(var1);
+
+                values1.sort(d3.ascending);
+
+                const q1_1 = count1 ? d3.quantile(values1, 0.25) : 0;
+                const q3_1 = count1 ? d3.quantile(values1, 0.75) : 0;
+
+                genStats1.push({
+                    generation: gen,
+                    mean: mean1,
+                    std: std1,
+                    count: count1,
+                    q1: q1_1,
+                    q3: q3_1
+                });
+
+                if (currentType2 === "none") {
+                    genStats2.push({
+                        generation: gen,
+                        mean: 0,
+                        std: 0,
+                        count: 0,
+                        q1: 0,
+                        q3: 0
+                    });
+                } 
+                else {
+                    let filtered2 = allData.filter(d =>
+                        d.generation === gen &&
+                        (currentType2 === "all" || d.type1 === currentType2 || d.type2 === currentType2) &&
+                        (!legendaryOnly || d.is_legendary) &&
+                        (!excludeLegendary || !d.is_legendary)
+                    );
+                    const values2 = filtered2.map(d => d[currentStat]);
+                    const count2 = values2.length;
+                    const mean2 = count2 ? d3.sum(values2) / count2 : 0;
+                    const var2 = count2 ? d3.sum(values2.map(v => (v - mean2) * (v - mean2))) / count2 : 0;
+                    const std2 = Math.sqrt(var2);
+
+                    values2.sort(d3.ascending);
+
+                    const q1_2 = count2 ? d3.quantile(values2, 0.25) : 0;
+                    const q3_2 = count2 ? d3.quantile(values2, 0.75) : 0;
+
+                    genStats2.push({
+                        generation: gen,
+                        mean: mean2,
+                        std: std2,
+                        count: count2,
+                        q1: q1_2,
+                        q3: q3_2
+                    });
+                }
+            }
+
+            const totalCount1 = d3.sum(genStats1, d => d.count);
+            const totalCount2 = d3.sum(genStats2, d => d.count);
+            countDisplay.text(`합계: [타입1] ${totalCount1}개   [타입2] ${totalCount2}개`);
+        }
+
+
+        function initChart() {
+            svg = d3.select("#line-chart");
+            chartWidth = document.getElementById("chart-container").clientWidth - margin.left - margin.right;
+            chartHeight = document.getElementById("chart-container").clientHeight - margin.top - margin.bottom;
+
+            svg
+            .attr("width",  chartWidth + margin.left + margin.right)
+            .attr("height", chartHeight + margin.top  + margin.bottom);
+
+            xScale = d3.scaleLinear()
+                .domain([0.5, 7.5])
+                .range([margin.left, margin.left + chartWidth]);
+
+            yScale = d3.scaleLinear()
+                .range([margin.top + chartHeight, margin.top]);
+
+            xAxisGroup = svg.append("g")
+                .attr("transform", `translate(0, ${margin.top + chartHeight})`)
+                .call(d3.axisBottom(xScale).ticks(7).tickFormat(d => `Gen ${d}`));
+
+            yAxisGroup = svg.append("g")
+                .attr("transform", `translate(${margin.left}, 0)`);
+
+            lineGen1 = d3.line()
+                .x(d => xScale(d.generation))
+                .y(d => yScale(d.mean))
+                .curve(d3.curveMonotoneX);
+
+            lineGen2 = d3.line()
+                .x(d => xScale(d.generation))
+                .y(d => yScale(d.mean))
+                .curve(d3.curveMonotoneX);
+
+            tooltip.style("opacity", 0);
+        }
+
+        function renderChart() {
+            computeGenStats();
+
+            const maxY1 = d3.max(genStats1, d => d.mean + d.std) || 0;
+            const maxY2 = d3.max(genStats2, d => d.mean + d.std) || 0;
+            const globalMaxY = Math.max(maxY1, maxY2);
+            yScale.domain([0, globalMaxY * 1.05]);
+
+            yAxisGroup
+                .transition().duration(300)
+                .call(d3.axisLeft(yScale));
+
+            const errorData1 = svg.selectAll(".error-bar1")
+                .data(genStats1, d => d.generation);
+            const errorData2 = svg.selectAll(".error-bar2")
+                .data(genStats2, d => d.generation);
+
+            errorData1.exit().remove();
+            const err1Enter = errorData1.enter()
+                .append("g")
+                .attr("class", "error-bar1");
+            err1Enter.append("line")
+                .attr("class", "err-line1")
+                .attr("stroke", "#4a4a4a").attr("stroke-width", 1.5);
+            err1Enter.append("line")
+                .attr("class", "err-cap1-top")
+                .attr("stroke", "#4a4a4a").attr("stroke-width", 1.5)
+                .attr("x1", -5).attr("x2", 5);
+            err1Enter.append("line")
+                .attr("class", "err-cap1-bottom")
+                .attr("stroke", "#4a4a4a").attr("stroke-width", 1.5)
+                .attr("x1", -5).attr("x2", 5);
+            
+            const err1Merge = err1Enter.merge(errorData1);
+            err1Merge.transition().duration(300)
+                .attr("transform", d => `translate(${xScale(d.generation)}, 0)`)
+                .each(function(d) {
+                    const yMean = yScale(d.mean);
+                    const yHigh = yScale(d.mean + d.std);
+                    const yLow  = yScale(d.mean - d.std);
+
+                    d3.select(this).select(".err-line1")
+                        .attr("x1", 0).attr("x2", 0)
+                        .attr("y1", yHigh).attr("y2", yLow);
+                    d3.select(this).select(".err-cap1-top")
+                        .attr("y1", yHigh).attr("y2", yHigh);
+                    d3.select(this).select(".err-cap1-bottom")
+                        .attr("y1", yLow).attr("y2", yLow);
+                });
+
+            errorData2.exit().remove();
+            const err2Enter = errorData2.enter()
+                .append("g")
+                .attr("class", "error-bar2");
+            err2Enter.append("line")
+                .attr("class", "err-line2")
+                .attr("stroke", "#b22a2a").attr("stroke-width", 1.5);
+            err2Enter.append("line")
+                .attr("class", "err-cap2-top")
+                .attr("stroke", "#b22a2a").attr("stroke-width", 1.5)
+                .attr("x1", -5).attr("x2", 5);
+            err2Enter.append("line")
+                .attr("class", "err-cap2-bottom")
+                .attr("stroke", "#b22a2a").attr("stroke-width", 1.5)
+                .attr("x1", -5).attr("x2", 5);
+            const err2Merge = err2Enter.merge(errorData2);
+            err2Merge.transition().duration(300)
+                .attr("transform", d => `translate(${xScale(d.generation)}, 0)`)
+                .each(function(d) {
+                    const yMean = yScale(d.mean);
+                    const yHigh = yScale(d.mean + d.std);
+                    const yLow  = yScale(d.mean - d.std);
+                    d3.select(this).select(".err-line2")
+                        .attr("x1", 0).attr("x2", 0)
+                        .attr("y1", yHigh).attr("y2", yLow);
+                    d3.select(this).select(".err-cap2-top")
+                        .attr("y1", yHigh).attr("y2", yHigh);
+                    d3.select(this).select(".err-cap2-bottom")
+                        .attr("y1", yLow).attr("y2", yLow);
+                });
+
+            const lineColor1 = (currentType1 === "all") ? "#2a9d8f" : (typeColorMap[currentType1] || "#2a9d8f");
+            const path1 = svg.selectAll(".mean-line1").data([genStats1]);
+            path1.enter()
+                .append("path")
+                .attr("class", "mean-line1")
+                .attr("fill", "none")
+                .attr("stroke-width", 2)
+                .merge(path1)
+                .transition().duration(300)
+                .attr("stroke", lineColor1)
+                .attr("d", lineGen1);
+
+            if (currentType2 !== "none") {
+                const lineColor2 = (currentType2 === "all") ? "#d86868" : (typeColorMap[currentType2] || "#d86868");
+                const path2 = svg.selectAll(".mean-line2").data([genStats2]);
+                path2.enter()
+                    .append("path")
+                    .attr("class", "mean-line2")
+                    .attr("fill", "none")
+                    .attr("stroke-width", 2)
+                    .merge(path2)
+                    .transition().duration(300)
+                    .attr("stroke", lineColor2)
+                    .attr("d", lineGen2);
+            } 
+            else {
+                svg.selectAll(".mean-line2").remove();
+            }
+
+            const points1 = svg.selectAll(".mean-point1").data(genStats1, d => d.generation);
+            points1.exit().remove();
+            const pts1Enter = points1.enter()
+                .append("circle")
+                .attr("class", "mean-point1")
+                .attr("r", 5)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1.5)
+                .style("cursor", "pointer")
+                .on("mouseover", (event, d) => {
+                showTooltip1(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", hideTooltip)
+                .on("click", (event, d) => {
+                    renderGenerationTable(d.generation, 1);
+                });
+            pts1Enter.merge(points1)
+                .transition().duration(300)
+                .attr("cx", d => xScale(d.generation))
+                .attr("cy", d => yScale(d.mean))
+                .attr("fill", lineColor1);
+
+            if (currentType2 !== "none") {
+                const points2 = svg.selectAll(".mean-point2").data(genStats2, d => d.generation);
+                points2.exit().remove();
+                const pts2Enter = points2.enter()
+                .append("circle")
+                .attr("class", "mean-point2")
+                .attr("r", 5)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1.5)
+                .style("cursor", "pointer")
+                .on("mouseover", (event, d) => {
+                    showTooltip2(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", hideTooltip)
+                .on("click", (event, d) => {
+                    renderGenerationTable(d.generation, 2);
+                });
+
+                pts2Enter.merge(points2)
+                .transition().duration(300)
+                .attr("cx", d => xScale(d.generation))
+                .attr("cy", d => yScale(d.mean))
+                .attr("fill", (currentType2 === "all") ? "#d86868" : (typeColorMap[currentType2] || "#d86868"));
+            }
+        }
+
+        function renderGenerationTable(gen, mode) {
+            let selType = (mode === 1) ? currentType1 : currentType2;
+            if (mode === 2 && selType === "none") return;
+
+            let filtered = allData.filter(d =>
+                d.generation === gen &&
+                (selType === "all" || d.type1 === selType || d.type2 === selType) &&
+                (!legendaryOnly || d.is_legendary) &&
+                (!excludeLegendary || !d.is_legendary)
+            );
+
+            filtered.sort((a, b) => b[currentStat] - a[currentStat]);
+
+            const typeLabel = (selType === "all") ? "All" : capitalizeType(selType);
+            const statLabel = statSelect.node().selectedOptions[0].text;
+            tableInfo.text(`▶ 타입${mode} 세대: ${gen} / 타입: ${typeLabel} / 스탯: ${statLabel} / 표본: ${filtered.length}개`);
+
+            tableBody.selectAll("tr").remove();
+
+            filtered.forEach((d, i) => {
+                const tr = tableBody.append("tr")
+                .on("mouseover", (event) => {
+                    showPokemonTooltip(d, event.pageX, event.pageY);
+                })
+                .on("mouseout", hideTooltip);
+
+                tr.append("td").text(i + 1);
+
+                const nameCell = tr.append("td");
+                nameCell.append("a")
+                .attr("class", "pokemon-link")
+                .text(d.name)
+                .style("color", typeColorMap[d.type1] || "#2a9d8f")
+                .on("click", () => {
+                    window.location.href = `pokemon.html?name=${encodeURIComponent(d.name)}`;
+                });
+                if (d.is_legendary) {
+                    nameCell.append("span")
+                        .attr("class", "legendary-indicator")
+                        .text("★");
+                }
+
+                tr.append("td").text(d.pokedex_number);
+
+                tr.append("td")
+                .text(d.hp)
+                .classed("highlight-cell", currentStat === "hp");
+
+                tr.append("td")
+                .text(d.attack)
+                .classed("highlight-cell", currentStat === "attack");
+
+                tr.append("td")
+                .text(d.defense)
+                .classed("highlight-cell", currentStat === "defense");
+
+                tr.append("td")
+                .text(d.sp_attack)
+                .classed("highlight-cell", currentStat === "sp_attack");
+
+                tr.append("td")
+                .text(d.sp_defense)
+                .classed("highlight-cell", currentStat === "sp_defense");
+
+                tr.append("td")
+                .text(d.speed)
+                .classed("highlight-cell", currentStat === "speed");
+
+                tr.append("td")
+                .text(d.base_total)
+                .classed("highlight-cell", currentStat === "base_total");
+            });
+        }
+
+        function showTooltip1(d, pageX, pageY) {
+            const left = pageX + 12;
+            const top  = pageY + 12;
+            tooltip
+                .style("left", left + "px")
+                .style("top", top + "px")
+                .style("opacity", 1)
+                .html(
+                    `<strong>(타입1) Gen ${d.generation}</strong><br/>
+                    평균 ${statSelect.node().selectedOptions[0].text}: ${d.mean.toFixed(1)}<br/>
+                    표준편차: ${d.std.toFixed(1)}<br/>
+                    표본 개수: ${d.count}<br/>
+                    1사분위: ${d.q1.toFixed(1)}, 3사분위: ${d.q3.toFixed(1)}`
+                );
+        }
+
+        function showTooltip2(d, pageX, pageY) {
+            const left = pageX + 12;
+            const top  = pageY + 12;
+            tooltip
+                .style("left", left + "px")
+                .style("top", top + "px")
+                .style("opacity", 1)
+                .html(
+                    `<strong>(타입2) Gen ${d.generation}</strong><br/>
+                    평균 ${statSelect.node().selectedOptions[0].text}: ${d.mean.toFixed(1)}<br/>
+                    표준편차: ${d.std.toFixed(1)}<br/>
+                    표본 개수: ${d.count}<br/>
+                    1사분위: ${d.q1.toFixed(1)}, 3사분위: ${d.q3.toFixed(1)}`
+                );
+        }
+
+        function showPokemonTooltip(d, pageX, pageY) {
+            const left = pageX + 12;
+            const top  = pageY + 12;
+            tooltip
+                .style("left", left + "px")
+                .style("top", top + "px")
+                .style("opacity", 1)
+                .html(
+                    `<strong>${d.name} ${d.is_legendary ? "(전설)" : ""}</strong><br/>
+                    타입: ${capitalizeType(d.type1)}${d.type2 ? ", " + capitalizeType(d.type2) : ""}<br/>
+                    HP: ${d.hp}, 공격: ${d.attack}, 방어: ${d.defense}<br/>
+                    Sp. Atk: ${d.sp_attack}, Sp. Def: ${d.sp_defense}, Speed: ${d.speed}<br/>
+                    Total: ${d.base_total}<br/>
+                    도감 번호: ${d.pokedex_number}<br/>
+                    어빌리티: ${d.abilities}<br/>
+                    키: ${d.height_m.toFixed(2)} m, 몸무게: ${d.weight_kg.toFixed(1)} kg`
+                );
+        }
+
+        function hideTooltip() {
+            tooltip.style("opacity", 0);
+        }
+
+        function updateAndRender() {
+            computeGenStats();
+            renderChart();
+
+            const hovered1 = d3.select(".mean-point1:hover").datum();
+            const hovered2 = d3.select(".mean-point2:hover").datum();
+            if (hovered1 && currentType1 !== "none") {
+                renderGenerationTable(hovered1.generation, 1);
+            } 
+            else if (hovered2 && currentType2 !== "none") {
+                renderGenerationTable(hovered2.generation, 2);
+            } 
+            else {
+                tableBody.selectAll("tr").remove();
+                tableInfo.text("세대, 타입1·타입2, 스탯을 선택해주세요.");
+            }
+        }
+
+        function setupEventListeners() {
+            type1Select.on("change", () => {
+                currentType1 = type1Select.node().value;
+                updateAndRender();
+            });
+
+            type2Select.on("change", () => {
+                currentType2 = type2Select.node().value;
+                if (currentType2 === currentType1) {
+                    alert("두 번째 타입은 첫 번째 타입과 중복될 수 없습니다.");
+                    currentType2 = "none";
+                    type2Select.property("value", "none");
+                }
+                updateAndRender();
+            });
+
+            statSelect.on("change", () => {
+                currentStat = statSelect.node().value;
+                updateAndRender();
+            });
+
+            legendaryCheckbox.on("change", () => {
+                legendaryOnly = legendaryCheckbox.property("checked");
+                if (legendaryOnly) {
+                    excludeLegendCheckbox.property("checked", false);
+                    excludeLegendary = false;
+                }
+                updateAndRender();
+            });
+
+            excludeLegendCheckbox.on("change", () => {
+                excludeLegendary = excludeLegendCheckbox.property("checked");
+                if (excludeLegendary) {
+                    legendaryCheckbox.property("checked", false);
+                    legendaryOnly = false;
+                }
+                updateAndRender();
+            });
+        }
+
+        function capitalizeType(str) {
+            if (!str || str === "none") {
+                return "";
+            }
+            const lower = str.toLowerCase();
+            return lower.charAt(0).toUpperCase() + lower.slice(1);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pokémon Insight</title>
+    <style>
+    /* ─────────────────────────────────────────────────────────────
+       coded with the help of Chat-GPT
+    ───────────────────────────────────────────────────────────── */
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "Noto Sans KR", sans-serif;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+    }
+    nav.sidebar {
+        width: 200px;
+        background-color: #2e3b4e;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 20px;
+        box-sizing: border-box;
+    }
+    nav.sidebar h2 {
+        margin: 0 0 20px;
+        font-size: 18px;
+        letter-spacing: 1px;
+    }
+    nav.sidebar ul {
+        list-style: none;
+        padding: 0;
+        width: 100%;
+    }
+    nav.sidebar li {
+        width: 100%;
+    }
+    nav.sidebar a {
+        display: block;
+        width: 100%;
+        padding: 12px 20px;
+        color: #ffffff;
+        text-decoration: none;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: background-color 0.2s;
+    }
+    nav.sidebar a:hover,
+    nav.sidebar a.active {
+        background-color: #1c2530;
+    }
+
+    section.main-content {
+        flex-grow: 1;
+        background-color: #f5f6fa;
+        position: relative;
+    }
+    section.main-content iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    </style>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <h2>Pokémon Insight</h2>
+        <ul>
+            <li><a href="Ranking.html" target="panelFrame" id="link1" class="active"><b>Top Pokémon</b></a></li>
+            <li><a href="Trends.html" target="panelFrame" id="link2"><b>Stat Trends</b></a></li>
+            <li><a href="TypeMap.html" target="panelFrame" id="link3"><b>Type Effectiveness Map</b></a></li>
+        </ul>
+    </nav>
+
+    <section class="main-content">
+        <iframe name="panelFrame" src="Ranking.html"></iframe>
+    </section>
+
+    <script>
+        const links = document.querySelectorAll("nav.sidebar a");
+        links.forEach(link => {
+            link.addEventListener("click", (e) => {
+                links.forEach(l => l.classList.remove("active"));
+            e.currentTarget.classList.add("active");
+        });
+        });
+  </script>
+</body>
+</html>

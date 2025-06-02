@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pokémon Information</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+    /* ─────────────────────────────────────────────────────────────
+       coded with the help of Chat-GPT
+    ───────────────────────────────────────────────────────────── */
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Noto Sans KR", sans-serif;
+        background-color: #f5f6fa;
+        color: #333;
+    }
+    #back-button {
+        display: inline-block;
+        margin-bottom: 20px;
+        padding: 6px 12px;
+        font-size: 14px;
+        background-color: #ffffff;
+        border: 1px solid #999;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        color: #333;
+        transition: background-color 0.2s;
+    }
+    #back-button:hover {
+        background-color: #e0e0e0;
+    }
+    h1 {
+        margin-top: 0;
+        font-size: 28px;
+    }
+    h2 {
+        margin: 24px 0 8px;
+        font-size: 20px;
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+    }
+    .info-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px 32px;
+        background-color: #ffffff;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+    }
+    .info-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .info-item span.label {
+        font-weight: bold;
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
+    .info-item span.value {
+        font-size: 14px;
+        word-break: break-word;
+    }
+    @media (max-width: 600px) {
+        .info-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 24px;
+    }
+    th, td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        text-align: center;
+        background-color: #fff;
+    }
+    th {
+        background-color: #f0f0f0;
+        color: #333;
+        font-weight: bold;
+    }
+    .section-table {
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .type-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        margin: 2px;
+        font-size: 12px;
+        color: white;
+        border-radius: 12px;
+        white-space: nowrap;
+    }
+    .type-normal   { background-color: #A8A77A; }
+    .type-fire     { background-color: #EE8130; }
+    .type-water    { background-color: #6390F0; }
+    .type-electric { background-color: #F7D02C; }
+    .type-grass    { background-color: #7AC74C; }
+    .type-ice      { background-color: #96D9D6; color: #333; }
+    .type-fighting { background-color: #C22E28; }
+    .type-poison   { background-color: #A33EA1; }
+    .type-ground   { background-color: #E2BF65; color: #333; }
+    .type-flying   { background-color: #A98FF3; }
+    .type-psychic  { background-color: #F95587; }
+    .type-bug      { background-color: #A6B91A; color: #333; }
+    .type-rock     { background-color: #B6A136; color: #333; }
+    .type-ghost    { background-color: #735797; }
+    .type-dragon   { background-color: #6F35FC; }
+    .type-dark     { background-color: #705746; }
+    .type-steel    { background-color: #B7B7CE; color: #333; }
+    .type-fairy    { background-color: #D685AD; }
+
+    #tooltip {
+        position: absolute;
+        pointer-events: none;
+        background-color: rgba(0,0,0,0.8);
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.4em;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        z-index: 10;
+    }
+    </style>
+</head>
+<body>
+    <button id="back-button" onclick="history.back()">← 이전으로</button>
+    <h1 id="poke-name">로딩 중...</h1>
+
+    <h2 id="basic-header">기본 정보</h2>
+    <div id="basic-info" class="info-container"></div>
+
+    <h2 id="stats-header">종족치</h2>
+    <table id="stats-table" class="section-table">
+        <thead>
+            <tr>
+                <th>HP</th>
+                <th>공격</th>
+                <th>방어</th>
+                <th>특수공격</th>
+                <th>특수방어</th>
+                <th>스피드</th>
+                <th>합계</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr id="base-stats-row"></tr>
+        </tbody>
+    </table>
+
+    <h2 id="breed-header">유전 정보</h2>
+    <table id="breed-table" class="section-table">
+        <thead>
+            <tr>
+                <th>전설 여부</th>
+                <th>어빌리티</th>
+                <th>성비</th>
+                <th>알 그룹</th>
+                <th>부화 카운트</th>
+                <th>최대 경험치량</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr id="breed-info-row"></tr>
+        </tbody>
+    </table>
+
+    <h2 id="def-header">방어 상성 (특성 미적용)</h2>
+    <table id="defense-table" class="section-table" style="text-align:left;">
+        <thead>
+            <tr id="defense-header-row"></tr>
+        </thead>
+        <tbody>
+            <tr id="defense-chart-row"></tr>
+        </tbody>
+    </table>
+
+    <div id="tooltip"></div>
+
+    <script>
+        const typeKR = {
+            normal: "노말", 
+            fire: "불꽃", 
+            water: "물", 
+            electric: "전기",
+            grass: "풀", 
+            ice: "얼음", 
+            fighting: "격투", 
+            poison: "독",
+            ground: "땅", 
+            flying: "비행", 
+            psychic: "에스퍼", 
+            bug: "벌레",
+            rock: "바위", 
+            ghost: "고스트", 
+            dragon: "드래곤", 
+            dark: "악",
+            steel: "강철", 
+            fairy: "페어리"
+        };
+        const typeColorMap = {
+            normal:   "#A8A77A",
+            fire:     "#EE8130",
+            water:    "#6390F0",
+            electric: "#F7D02C",
+            grass:    "#7AC74C",
+            ice:      "#96D9D6",
+            fighting: "#C22E28",
+            poison:   "#A33EA1",
+            ground:   "#E2BF65",
+            flying:   "#A98FF3",
+            psychic:  "#F95587",
+            bug:      "#A6B91A",
+            rock:     "#B6A136",
+            ghost:    "#735797",
+            dragon:   "#6F35FC",
+            dark:     "#705746",
+            steel:    "#B7B7CE",
+            fairy:    "#D685AD"
+        };
+
+        function getQueryParam(key) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(key);
+        }
+
+        const pokeName = getQueryParam("name");
+        const titleEl = d3.select("#poke-name");
+        const basicInfoContainer = d3.select("#basic-info");
+        const baseStatsRow = d3.select("#base-stats-row");
+        const breedInfoRow = d3.select("#breed-info-row");
+        const defenseHeaderRow = d3.select("#defense-header-row");
+        const defenseChartRow = d3.select("#defense-chart-row");
+
+        const basicHeader = d3.select("#basic-header");
+        const statsHeader = d3.select("#stats-header");
+        const breedHeader = d3.select("#breed-header");
+        const defHeader = d3.select("#def-header");
+
+        const statsTable = d3.select("#stats-table");
+        const breedTable = d3.select("#breed-table");
+        const defenseTable = d3.select("#defense-table");
+
+        if (!pokeName) {
+            titleEl.text("포켓몬 이름이 전달되지 않았습니다.");
+        } 
+        else {
+            const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv";
+            d3.csv(csvUrl).then(data => {
+                const record = data.find(d => d.name === pokeName);
+                    if (!record) {
+                        titleEl.text(`"${pokeName}" 정보를 찾을 수 없습니다.`);
+                    return;
+                }
+
+                titleEl.text(`${record.name} (${record.japanese_name}) ‒ #${record.pokedex_number}`);
+
+                const type1Badge = `<span class="type-badge type-${record.type1}">${typeKR[record.type1]}</span>`;
+                const type2Badge = record.type2 ? `<span class="type-badge type-${record.type2}">${typeKR[record.type2]}</span>` : "—";
+
+                const headerColor = typeColorMap[record.type1] || "#4caf50";
+                basicHeader.style("background-color", headerColor);
+                statsHeader.style("background-color", headerColor);
+                breedHeader.style("background-color", headerColor);
+                defHeader.style("background-color", headerColor);
+                statsTable.selectAll("th").style("background-color", headerColor);
+                breedTable.selectAll("th").style("background-color", headerColor);
+                defenseTable.selectAll("th").style("background-color", headerColor);
+
+                basicInfoContainer.selectAll("*").remove();
+                const basicFields = [
+                    { label: "도감 번호", value: record.pokedex_number },
+                    { label: "분류", value: record.classfication || "—" },
+                    { label: "타입1", value: type1Badge },
+                    { label: "타입2", value: type2Badge },
+                    { label: "신장", value: record.height_m ? `${parseFloat(record.height_m).toFixed(2)} m` : "—" },
+                    { label: "체중", value: record.weight_kg ? `${parseFloat(record.weight_kg).toFixed(2)} kg` : "—" },
+                    { label: "포획률", value: record.capture_rate || "—" }
+                ];
+
+                basicFields.forEach(f => {
+                    basicInfoContainer.append("div")
+                        .attr("class", "info-item")
+                        .html(`
+                        <span class="label">${f.label}:</span>
+                        <span class="value">${f.value}</span>
+                        `);
+                });
+
+                baseStatsRow.selectAll("td").remove();
+                const stats = [
+                    record.hp, record.attack, record.defense,
+                    record.sp_attack, record.sp_defense, record.speed, record.base_total
+                ];
+
+                stats.forEach(val => {
+                    baseStatsRow.append("td").text(val);
+                });
+
+                breedInfoRow.selectAll("td").remove();
+                const legendaryText = (record.is_legendary === "1" || record.is_legendary === "true") ? "예" : "아니오";
+                const abilitiesText = record.abilities || "—";
+                const genderRatio = record.percentage_male ? `수컷: ${parseFloat(record.percentage_male).toFixed(1)}% / 암컷: ${(100 - parseFloat(record.percentage_male)).toFixed(1)}%` : "—";
+                const eggGroupValue = "—";
+                const hatchSteps = record.base_egg_steps || "—";
+                const maxExp = record.experience_growth || "—";
+
+                const breedFields = [
+                    legendaryText,
+                    abilitiesText,
+                    genderRatio,
+                    eggGroupValue,
+                    hatchSteps,
+                    maxExp
+                ];
+                breedFields.forEach(val => {
+                    breedInfoRow.append("td").text(val);
+                });
+
+                defenseHeaderRow.selectAll("th").remove();
+                defenseChartRow.selectAll("td").remove();
+
+                const types = [
+                    "normal","fire","water","electric","grass","ice","fighting","poison","ground",
+                    "flying","psychic","bug","rock","ghost","dragon","dark","steel","fairy"
+                ];
+                const groups = {
+                    "4배": [], "2배": [], "1배": [], "0.5배": [], "0.25배": [], "0배": []
+                };
+
+                types.forEach(t => {
+                    let keySuffix = t === "fighting" ? "fight" : t;
+                    const val = parseFloat(record["against_" + keySuffix]);
+                    if (!isNaN(val)) {
+                        if (val >= 4) groups["4배"].push(t);
+                        else if (val >= 2) groups["2배"].push(t);
+                        else if (val === 1) groups["1배"].push(t);
+                        else if (val <= 0.5 && val > 0.25) groups["0.5배"].push(t);
+                        else if (val <= 0.25 && val > 0) groups["0.25배"].push(t);
+                        else if (val === 0) groups["0배"].push(t);
+                    }
+                });
+
+                const categories = Object.entries(groups)
+                    .filter(([label, arr]) => arr.length > 0)
+                    .map(([label, arr]) => ({ label, arr }));
+
+                categories.forEach(cat => {
+                    defenseHeaderRow.append("th").text(cat.label);
+                });
+
+                function appendTypeBadges(selection, arr) {
+                    if (arr.length === 0) {
+                        selection.append("div").style("padding", "6px").text("—");
+                    } 
+                    else {
+                        arr.forEach(t => {
+                        selection.append("span")
+                            .attr("class", `type-badge type-${t}`)
+                            .text(typeKR[t]);
+                        });
+                    }
+                }
+
+                categories.forEach(cat => {
+                    defenseChartRow.append("td")
+                        .call(sel => appendTypeBadges(sel, cat.arr));
+                });
+            });
+        }
+
+        function capitalize(str) {
+            if (!str) {
+                return "";
+            }
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Type Effectiveness Map  & Team Coverage</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+    /* ─────────────────────────────────────────────────────────────
+       coded with the help of Chat-GPT
+    ───────────────────────────────────────────────────────────── */
+    body {
+        font-family: "Noto Sans KR", sans-serif;
+        margin: 20px;
+        background-color: #f5f6fa;
+        color: #333;
+        line-height: 1.5;
+    }
+    h1 {
+        font-size: 20px;
+        margin-bottom: 16px;
+        color: #333;
+    }
+
+    h2 {
+        font-size: 20px;
+        margin: 0;
+        color: #fff;
+        background-color: #4a90e2;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    #team-form {
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        padding: 16px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    #single-slot {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+        margin-bottom: 16px;
+    }
+    #single-slot label {
+        font-size: 14px;
+        width: 70px;
+    }
+    #single-slot input,
+    #single-slot select {
+        flex: 1;
+        min-width: 140px;
+        padding: 6px 8px;
+        font-size: 14px;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+    }
+    #single-slot button#add-button {
+        padding: 7px 14px;
+        font-size: 14px;
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    #single-slot button#add-button:hover {
+        background-color: #218838;
+    }
+
+    #filter-controls {
+        margin-bottom: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 14px;
+    }
+    #filter-controls label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+    }
+    #filter-controls input[type="checkbox"] {
+        transform: scale(1.1);
+    }
+
+    #mode-controls {
+        margin-bottom: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        font-size: 14px;
+    }
+    #mode-controls label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+    }
+    #mode-controls input[type="radio"] {
+        transform: scale(1.1);
+    }
+
+    #team-list {
+        margin-bottom: 12px;
+    }
+    .team-entry {
+        position: relative;
+        background-color: #fafafa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px 48px 12px 12px;
+        margin-bottom: 12px;
+    }
+    .team-entry .header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    .team-entry .header .name {
+        font-size: 15px;
+        font-weight: 600;
+        color: #2c3e50;
+        min-width: 180px;
+    }
+    .team-entry .header .badge {
+        display: inline-block;
+        padding: 5px 12px;
+        font-size: 14px;
+        color: #fff;
+        border-radius: 12px;
+    }
+    .team-entry .label-weakness,
+    .team-entry .label-strength {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 14px;
+        margin-top: 4px;
+    }
+    .team-entry .label {
+        font-weight: bold;
+        margin-right: 6px;
+        min-width: 30px;
+    }
+    .team-entry .label-weakness .badge-small,
+    .team-entry .label-strength .badge-small {
+        display: inline-block;
+        padding: 4px 10px;
+        font-size: 13px;
+        color: #fff;
+        border-radius: 10px;
+    }
+    .team-entry button.del-team {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 5px 12px;
+        font-size: 13px;
+        background-color: #e53935;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .team-entry button.del-team:hover {
+        background-color: #c62828;
+    }
+
+    #summary {
+        font-size: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+    #summary .label-summary {
+        font-weight: 600;
+        margin-right: 6px;
+    }
+    #summary .badge-small {
+        display: inline-block;
+        padding: 4px 10px;
+        font-size: 13px;
+        color: #fff;
+        border-radius: 10px;
+        margin-right: 4px;
+    }
+
+    #heatmap-container {
+        display: flex;
+        gap: 16px;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 12px;
+        overflow-x: auto;
+    }
+    #heatmap {
+        flex: 0 0 auto;
+        border: 1px solid #ccc;
+        background-color: #fafafa;
+    }
+
+    .tooltip {
+        position: absolute;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 6px 10px;
+        font-size: 13px;
+        border-radius: 4px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        z-index: 10;
+    }
+
+    #sidebar {
+        flex: 0 0 300px;
+        max-height: 700px;
+        overflow-y: auto;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 12px;
+    }
+    #sidebar h3 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-size: 18px;
+        color: #2c3e50;
+    }
+    #sidebar p.note {
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+    #selectedCombo {
+        font-size: 15px;
+        font-weight: 500;
+        margin-bottom: 10px;
+    }
+    #pokemonTable {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 12px;
+    }
+    #pokemonTable th,
+    #pokemonTable td {
+        border: 1px solid #aaa;
+        padding: 6px 10px;
+        text-align: left;
+        font-size: 14px;
+    }
+    #pokemonTable th {
+        background-color: #f0f0f0;
+        font-weight: 600;
+    }
+    #pokemonTable a {
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    #pokemonTable a:hover {
+        text-decoration: underline;
+    }
+
+    #legend {
+        margin-top: 12px;
+        font-size: 14px;
+    }
+    #legend .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 20px;
+    }
+    #legend .legend-shape {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+    #legend .legend-triangle {
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-bottom: 16px solid #f4a261;
+    }
+    #legend .legend-circle {
+        border-radius: 50%;
+        border: 2px solid #e63946;
+        width: 12px;
+        height: 12px;
+        display: inline-block;
+    }
+    #legend .legend-cross {
+        position: relative;
+        width: 16px;
+        height: 16px;
+    }
+    #legend .legend-cross::before,
+    #legend .legend-cross::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 7px;
+        width: 2px;
+        height: 12px;
+        background: #1d3557;
+    }
+    #legend .legend-cross::after {
+        transform: rotate(90deg);
+    }
+
+    .cell {
+        cursor: pointer;
+    }
+    .cell-bg {
+        stroke: #ddd;
+        stroke-width: 1px;
+    }
+    .cell.selected .cell-bg {
+        stroke: #e63946;
+        stroke-width: 2px;
+    }
+    .icon-circle {
+        fill: none;
+        stroke: #e63946;
+        stroke-width: 2px;
+    }
+    .icon-triangle {
+        fill: #f4a261;
+    }
+    .icon-cross {
+        stroke: #1d3557;
+        stroke-width: 2px;
+    }
+
+    #attacker-label {
+        position: absolute;
+        top: 82px;
+        left: 8px;
+        transform: rotate(-90deg);
+        transform-origin: left top;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    #defender-label {
+        position: absolute;
+        top: 8px;
+        left: 140px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+    </style>
+</head>
+<body>
+    <h1>Type Effectiveness Map  & Team Coverage</h1>
+
+    <div id="team-form">
+        <h2>내 팀 등록 (최대 6마리)</h2>
+
+        <div id="single-slot">
+            <label for="num-input">번호 (#)</label>
+            <input id="num-input" type="number" min="1" placeholder="번호 입력" />
+
+            <label for="type-filter">타입 필터</label>
+            <select id="type-filter">
+                <option value="">-- 타입 필터 --</option>
+            </select>
+
+            <label for="name-select">이름 선택</label>
+            <select id="name-select">
+                <option value="">-- 이름 선택 --</option>
+            </select>
+
+            <button id="add-button">추가</button>
+        </div>
+
+        <div id="filter-controls">
+            <label>
+                <input type="checkbox" id="strongFilter" /> 배율 ≥ 2만 보기
+            </label>
+            <label>
+                <input type="checkbox" id="weakFilter" /> 배율 ≤ 0.5만 보기
+            </label>
+            <label>
+                <input type="checkbox" id="showCovered" /> 내 상태 보기
+            </label>
+            <label>
+                <input type="checkbox" id="showWeakOnly" /> 부족한 상태 보기
+            </label>
+        </div>
+
+        <div id="mode-controls">
+            <label>
+                <input type="radio" name="resultMode" value="def" checked /> 결과 기준: 방어 타입
+            </label>
+            <label>
+                <input type="radio" name="resultMode" value="atk" /> 결과 기준: 공격 타입
+            </label>
+        </div>
+
+        <div id="team-list"></div>
+
+        <div id="summary"></div>
+    </div>
+
+    <div id="heatmap-container">
+        <svg id="heatmap" width="900" height="900"></svg>
+
+        <div id="sidebar">
+            <h3>■ 선택된 타입 조합 포켓몬</h3>
+            <p class="note">
+                * 셀 클릭 시, 해당 공격·방어 타입 조합을 동시에 가진 포켓몬 중에서<br/>
+                &nbsp;배율(against_)이 필터 조건에 맞는 포켓몬을 표시합니다.<br/>
+                * “배율 ≥ 2만 보기”는 against_ ≥ 2, “배율 ≤ 0.5만 보기”는 against_ ≤ 0.5,<br/>
+                &nbsp;그 외(배율 = 1)는 against_ = 1인 경우를 보여줍니다.<br/>
+                * 결과 테이블에는 <strong>이름, 타입1, 타입2, 배율, 총합 스탯</strong>을 표시합니다.<br/>
+                * “결과 기준”을 “공격 타입”으로 설정하면, 클릭한 셀의 <em>공격 타입</em>을 가진 모든 포켓몬을 보여줍니다.
+            </p>
+
+            <p id="selectedCombo">선택된 조합: -</p>
+
+            <table id="pokemonTable">
+                <thead>
+                    <tr>
+                        <th>이름</th>
+                        <th>타입1</th>
+                        <th>타입2</th>
+                        <th>배율</th>
+                        <th>총합 스탯</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div id="legend">
+                <div class="legend-item">
+                    <span class="legend-shape legend-triangle"></span>0.5× (효과 ↓)
+                </div>
+                <div class="legend-item">
+                    <span class="legend-shape legend-circle"></span>2× (효과 ↑)
+                </div>
+                <div class="legend-item">
+                    <span class="legend-shape legend-cross"></span>0× (효과 없음)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const typeList = [
+            "normal","fire","water","electric","grass","ice","fighting",
+            "poison","ground","flying","psychic","bug","rock","ghost",
+            "dragon","dark","steel","fairy"
+        ];
+        const typeKR = {
+            normal: "노말", 
+            fire: "불꽃", 
+            water: "물", 
+            electric: "전기",
+            grass: "풀", 
+            ice: "얼음", 
+            fighting: "격투", 
+            poison: "독",
+            ground: "땅", 
+            flying: "비행", 
+            psychic: "에스퍼", 
+            bug: "벌레",
+            rock: "바위", 
+            ghost: "고스트", 
+            dragon: "드래곤", 
+            dark: "악",
+            steel: "강철", 
+            fairy: "페어리"
+        };
+        const typeColorMap = {
+            normal:   "#A8A77A",
+            fire:     "#EE8130",
+            water:    "#6390F0",
+            electric: "#F7D02C",
+            grass:    "#7AC74C",
+            ice:      "#96D9D6",
+            fighting: "#C22E28",
+            poison:   "#A33EA1",
+            ground:   "#E2BF65",
+            flying:   "#A98FF3",
+            psychic:  "#F95587",
+            bug:      "#A6B91A",
+            rock:     "#B6A136",
+            ghost:    "#735797",
+            dragon:   "#6F35FC",
+            dark:     "#705746",
+            steel:    "#B7B7CE",
+            fairy:    "#D685AD"
+        };
+        const typeEffectiveness = {
+            normal:   { normal:1, fire:1, water:1, electric:1, grass:1, ice:1, fighting:1, poison:1, ground:1, flying:1, psychic:1, bug:1, rock:0.5, ghost:0,    dragon:1, dark:1, steel:0.5, fairy:1 },
+            fire:     { normal:1, fire:0.5, water:0.5, electric:1, grass:2, ice:2, fighting:1, poison:1, ground:1, flying:1, psychic:1, bug:2, rock:0.5, ghost:1,    dragon:0.5, dark:1, steel:2,   fairy:1 },
+            water:    { normal:1, fire:2,   water:0.5, electric:1, grass:0.5, ice:1, fighting:1, poison:1, ground:2, flying:1, psychic:1, bug:1, rock:2, ghost:1,    dragon:0.5, dark:1, steel:1,   fairy:1 },
+            electric: { normal:1, fire:1,   water:2,   electric:0.5, grass:0.5, ice:1, fighting:1, poison:1, ground:0, flying:2, psychic:1, bug:1, rock:1, ghost:1,    dragon:0.5, dark:1, steel:1,   fairy:1 },
+            grass:    { normal:1, fire:0.5, water:2,   electric:1, grass:0.5, ice:1, fighting:1, poison:0.5, ground:2, flying:0.5, psychic:1, bug:0.5, rock:2, ghost:1,    dragon:0.5, dark:1, steel:0.5, fairy:1 },
+            ice:      { normal:1, fire:0.5, water:0.5, electric:1, grass:2, ice:0.5, fighting:1, poison:1, ground:2, flying:2, psychic:1, bug:1, rock:1, ghost:1,    dragon:2,   dark:1, steel:0.5, fairy:1 },
+            fighting: { normal:2, fire:1,   water:1,   electric:1, grass:1, ice:2, fighting:1, poison:0.5, ground:1, flying:0.5, psychic:0.5, bug:0.5, rock:2, ghost:0,    dragon:1,   dark:2, steel:2,   fairy:0.5 },
+            poison:   { normal:1, fire:1,   water:1,   electric:1, grass:2, ice:1, fighting:1, poison:0.5, ground:0.5, flying:1, psychic:1, bug:1, rock:0.5, ghost:0.5,  dragon:1,   dark:1, steel:0,   fairy:2 },
+            ground:   { normal:1, fire:2,   water:1,   electric:2, grass:0.5, ice:1, fighting:1, poison:2, ground:1, flying:0, psychic:1, bug:0.5, rock:2, ghost:1,    dragon:1,   dark:1, steel:2,   fairy:1 },
+            flying:   { normal:1, fire:1,   water:1,   electric:0.5, grass:2, ice:1, fighting:2, poison:1, ground:1, flying:1, psychic:1, bug:2, rock:0.5, ghost:1,    dragon:1,   dark:1, steel:0.5, fairy:1 },
+            psychic:  { normal:1, fire:1,   water:1,   electric:1, grass:1, ice:1, fighting:2, poison:2, ground:1, flying:1, psychic:0.5, bug:1, rock:1, ghost:1,    dragon:1,   dark:0, steel:0.5, fairy:1 },
+            bug:      { normal:1, fire:0.5, water:1,   electric:1, grass:1, ice:1, fighting:0.5, poison:0.5, ground:1, flying:0.5, psychic:2, bug:1, rock:1, ghost:0.5,  dragon:1,   dark:2, steel:0.5, fairy:0.5 },
+            rock:     { normal:1, fire:2,   water:1,   electric:1, grass:1, ice:2, fighting:0.5, poison:1, ground:0.5, flying:2, psychic:1, bug:2, rock:1, ghost:1,    dragon:1,   dark:1, steel:0.5, fairy:1 },
+            ghost:    { normal:0, fire:1,   water:1,   electric:1, grass:1, ice:1, fighting:1, poison:1, ground:1, flying:1, psychic:2, bug:1, rock:1, ghost:2,    dragon:1,   dark:0.5, steel:1,   fairy:1 },
+            dragon:   { normal:1, fire:1,   water:1,   electric:1, grass:1, ice:1, fighting:1, poison:1, ground:1, flying:1, psychic:1, bug:1, rock:1, ghost:1,    dragon:2,   dark:1, steel:0.5, fairy:0   },
+            dark:     { normal:1, fire:1,   water:1,   electric:1, grass:1, ice:1, fighting:0.5, poison:1, ground:1, flying:1, psychic:2, bug:1, rock:1, ghost:2,    dragon:1,   dark:0.5, steel:1,   fairy:0.5 },
+            steel:    { normal:1, fire:0.5, water:0.5, electric:0.5, grass:1, ice:2, fighting:1, poison:1, ground:1, flying:1, psychic:1, bug:1, rock:2, ghost:1,    dragon:1,   dark:1, steel:0.5, fairy:2   },
+            fairy:    { normal:1, fire:0.5, water:1,   electric:1, grass:1, ice:1, fighting:2, poison:1, ground:1, flying:1, psychic:1, bug:1, rock:1, ghost:1,    dragon:2,   dark:2, steel:0.5, fairy:1   }
+        };
+
+        const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv";
+
+        let allPokemons = [];
+        const teamRecords = [];
+
+        const summaryEl         = d3.select("#summary");
+        const selectedComboText = d3.select("#selectedCombo");
+        const pokemonTableBody  = d3.select("#pokemonTable tbody");
+        const tooltip           = d3.select("#tooltip");
+
+        const strongCheckbox  = d3.select("#strongFilter");
+        const weakCheckbox    = d3.select("#weakFilter");
+        const showCoveredCB   = d3.select("#showCovered");
+        const showWeakOnlyCB  = d3.select("#showWeakOnly");
+
+        const modeRadios = d3.selectAll("input[name='resultMode']");
+
+        const svg = d3.select("#heatmap");
+        const labelHeight = 50;
+        const margin = {
+            top: labelHeight + 20,
+            right: 20,
+            bottom: 20,
+            left: 180
+        };
+        const availableWidth  = +svg.attr("width")  - margin.left - margin.right;
+        const availableHeight = +svg.attr("height") - margin.top  - margin.bottom;
+        const cellSize = Math.min(availableWidth, availableHeight) / typeList.length;
+        const gridWidth  = cellSize * typeList.length;
+        const gridHeight = cellSize * typeList.length;
+        const xOffset = margin.left + (availableWidth - gridWidth) / 2;
+        const yOffset = margin.top;
+        const chartGroup = svg.append("g")
+            .attr("transform", `translate(${xOffset},${yOffset})`);
+
+
+
+        d3.csv(csvUrl).then(data => {
+            allPokemons = data;
+            initTypeFilter();
+            drawHeatmap();
+        });
+
+        function initTypeFilter() {
+            const typeFilter = d3.select("#type-filter");
+            typeFilter.html("");
+            typeFilter.append("option").attr("value", "").text("-- 타입 필터 --");
+            typeList.forEach(t => {
+                typeFilter.append("option")
+                .attr("value", t)
+                .text(typeKR[t]);
+            });
+            typeFilter.on("change", () => {
+                const chosen = typeFilter.node().value;
+                populateNameDropdown(chosen);
+            });
+        }
+
+        function populateNameDropdown(type) {
+            const selectByName = d3.select("#name-select");
+            selectByName.html("");
+            selectByName.append("option").attr("value", "").text("-- 이름 선택 --");
+            let filtered = allPokemons;
+            if (type) {
+                filtered = allPokemons.filter(d =>
+                d.type1.toLowerCase() === type || (d.type2 && d.type2.toLowerCase() === type)
+                );
+            }
+            filtered.sort((a,b) => +a.pokedex_number - +b.pokedex_number)
+                .forEach(d => {
+                selectByName.append("option")
+                    .attr("value", d.name)
+                    .text(`${d.name} (#${d.pokedex_number})`);
+                });
+        }
+
+        strongCheckbox.on("change", () => {
+            if (strongCheckbox.property("checked")) {
+                weakCheckbox.property("checked", false);
+            }
+            drawHeatmap();
+        });
+        weakCheckbox.on("change", () => {
+            if (weakCheckbox.property("checked")) {
+                strongCheckbox.property("checked", false);
+            }
+            drawHeatmap();
+        });
+        showCoveredCB.on("change", () => {
+            if (teamRecords.length === 0) {
+                alert("포켓몬을 먼저 추가해주세요!");
+                showCoveredCB.property("checked", false);
+                return;
+            }
+            if (showCoveredCB.property("checked")) {
+                showWeakOnlyCB.property("checked", false);
+            }
+            drawHeatmap();
+        });
+
+        showWeakOnlyCB.on("change", () => {
+            if (teamRecords.length === 0) {
+                alert("포켓몬을 먼저 추가해주세요!");
+                showWeakOnlyCB.property("checked", false);
+                return;
+            }
+            if (showWeakOnlyCB.property("checked")) {
+                showCoveredCB.property("checked", false);
+            }
+            drawHeatmap();
+        });
+
+        modeRadios.on("change", () => {
+            drawHeatmap();
+        });
+
+        d3.select("#add-button").on("click", () => {
+            const numVal  = d3.select("#num-input").property("value").trim();
+            const nameVal = d3.select("#name-select").property("value");
+            let rec = null;
+            if (numVal) {
+                rec = allPokemons.find(d => +d.pokedex_number === +numVal);
+            }
+            if (!rec && nameVal) {
+                rec = allPokemons.find(d => d.name === nameVal);
+            }
+            if (!rec) {
+                alert("유효한 도감 번호 또는 이름을 먼저 선택하세요.");
+                return;
+            }
+            if (teamRecords.find(t => t.name === rec.name)) {
+                alert("이미 추가된 포켓몬입니다.");
+                return;
+            }
+            if (teamRecords.length >= 6) {
+                alert("최대 6마리까지 추가 가능합니다.");
+                return;
+            }
+            teamRecords.push(rec);
+            renderTeamList();
+            drawHeatmap();
+
+            d3.select("#num-input").property("value", "");
+            d3.select("#type-filter").property("value", "");
+            populateNameDropdown("");
+        });
+
+        function renderTeamList() {
+            const listDiv = d3.select("#team-list");
+            listDiv.selectAll("*").remove();
+
+            teamRecords.forEach((rec, idx) => {
+                const weaknessSet = new Set();
+                    ["type1","type2"].forEach(key => {
+                    if (rec[key]) {
+                        const ttype = rec[key].toLowerCase();
+                        typeList.forEach(aType => {
+                            const val = parseFloat(rec[`against_${aType === "fighting" ? "fight" : aType}`]);
+                            if (!isNaN(val) && val >= 2) {
+                                weaknessSet.add(aType);
+                            }
+                        });
+                    }
+                });
+
+                const strengthSet = new Set();
+                    ["type1","type2"].forEach(key => {
+                    if (rec[key]) {
+                        const atkType = rec[key].toLowerCase();
+                        typeList.forEach(defT => {
+                            const val = typeEffectiveness[atkType][defT] || 1;
+                            if (val >= 2) {
+                                strengthSet.add(defT)
+                            };
+                        });
+                    }
+                });
+
+                const entry = listDiv.append("div").attr("class", "team-entry");
+
+                const headerDiv = entry.append("div").attr("class", "header");
+                headerDiv.append("span")
+                    .attr("class", "name")
+                    .text(`${rec.name} (#${rec.pokedex_number})`);
+                headerDiv.append("span")
+                    .attr("class", "badge")
+                    .style("background-color", typeColorMap[rec.type1.toLowerCase()])
+                    .text(typeKR[rec.type1.toLowerCase()]);
+                
+                if (rec.type2) {
+                    headerDiv.append("span")
+                        .attr("class", "badge")
+                        .style("background-color", typeColorMap[rec.type2.toLowerCase()])
+                        .text(typeKR[rec.type2.toLowerCase()]);
+                }
+
+                const wDiv = entry.append("div").attr("class", "label-weakness");
+                wDiv.append("span").attr("class", "label").text("약:");
+                if (weaknessSet.size > 0) {
+                    weaknessSet.forEach(t => {
+                        wDiv.append("span")
+                        .attr("class", "badge-small")
+                        .style("background-color", typeColorMap[t])
+                        .text(typeKR[t]);
+                    });
+                } 
+                else {
+                    wDiv.append("span").text("없음");
+                }
+
+                const sDiv = entry.append("div").attr("class", "label-strength");
+                sDiv.append("span").attr("class", "label").text("강:");
+                if (strengthSet.size > 0) {
+                    strengthSet.forEach(t => {
+                        sDiv.append("span")
+                        .attr("class", "badge-small")
+                        .style("background-color", typeColorMap[t])
+                        .text(typeKR[t]);
+                    });
+                } 
+                else {
+                    sDiv.append("span").text("없음");
+                }
+
+                entry.append("button")
+                    .attr("class", "del-team")
+                    .text("삭제")
+                    .on("click", () => {
+                        teamRecords.splice(idx, 1);
+                        renderTeamList();
+                        drawHeatmap();
+                    });
+            });
+
+            const teamStrength = new Set();
+            teamRecords.forEach(rec => {
+                ["type1","type2"].forEach(key => {
+                    if (rec[key]) {
+                        const atkType = rec[key].toLowerCase();
+                        typeList.forEach(defT => {
+                            const val = typeEffectiveness[atkType][defT] || 1;
+                            if (val >= 2) {
+                                teamStrength.add(defT);
+                            }
+                        });
+                    }
+                });
+            });
+            const teamWeakness = new Set(typeList.filter(t => !teamStrength.has(t)));
+
+            const summaryParts = [];
+            summaryParts.push(`<span class="label-summary">선택된 포켓몬 수:</span> ${teamRecords.length}`);
+
+            let wHtml = `<span class="label-summary">팀 약점:</span> `;
+            if (teamWeakness.size > 0) {
+                [...teamWeakness].forEach(t => {
+                    wHtml += `<span class="badge-small" style="background-color: ${typeColorMap[t]}; margin-right:4px;">${typeKR[t]}</span>`;
+                });
+            } 
+            else {
+                wHtml += "없음";
+            }
+            summaryParts.push(wHtml);
+
+            let sHtml = `<span class="label-summary">팀 강점:</span> `;
+            if (teamStrength.size > 0) {
+                [...teamStrength].forEach(t => {
+                    sHtml += `<span class="badge-small" style="background-color: ${typeColorMap[t]}; margin-right:4px;">${typeKR[t]}</span>`;
+                });
+            } 
+            else {
+                sHtml += "없음";
+            }
+            summaryParts.push(sHtml);
+
+            summaryEl.html(summaryParts.join("<br/>"));
+        }
+
+        function drawHeatmap() {
+            const strongOnly = strongCheckbox.property("checked");
+            const weakOnly = weakCheckbox.property("checked");
+            const showCovered = showCoveredCB.property("checked") && teamRecords.length > 0;
+            const showWeakOnly = showWeakOnlyCB.property("checked") && teamRecords.length > 0;
+    
+            const teamStrength = new Set();
+            teamRecords.forEach(rec => {
+                ["type1","type2"].forEach(key => {
+                    if (rec[key]) {
+                        const atkType = rec[key].toLowerCase();
+                        typeList.forEach(defT => {
+                            const val = typeEffectiveness[atkType][defT] || 1;
+                            if (val >= 2) {
+                                teamStrength.add(defT);
+                            }
+                        });
+                    }
+                });
+            });
+            const teamWeakness = new Set(typeList.filter(t => !teamStrength.has(t)));
+            const teamTypes = new Set();
+            teamRecords.forEach(rec => {
+                teamTypes.add(rec.type1.toLowerCase());
+                if (rec.type2) {
+                    teamTypes.add(rec.type2.toLowerCase());
+                }
+            });
+    
+            const summaryParts = [];
+            summaryParts.push(`선택된 포켓몬 수: ${teamRecords.length}`);
+            if (teamWeakness.size > 0) {
+                const weakBadges = [...teamWeakness].map(t => {
+                    return `<span class="badge-small" style="background-color: ${typeColorMap[t]};">${typeKR[t]}</span>`;
+                }).join(" ");
+                summaryParts.push(`팀 약점: ${weakBadges}`);
+            } 
+            else {
+                summaryParts.push(`팀 약점: 없음`);
+            }
+            if (teamStrength.size > 0) {
+                const strBadges = [...teamStrength].map(t => {
+                    return `<span class="badge-small" style="background-color: ${typeColorMap[t]};">${typeKR[t]}</span>`;
+                }).join(" ");
+                summaryParts.push(`팀 강점: ${strBadges}`);
+            } 
+            else {
+                summaryParts.push(`팀 강점: 없음`);
+            }
+            summaryEl.html(summaryParts.join("&nbsp;&nbsp;"));
+    
+            const heatmapData = [];
+            typeList.forEach(atk => {
+                typeList.forEach(def => {
+                    const val = typeEffectiveness[atk][def] ?? 1;
+                    heatmapData.push({ atk, def, value: val });
+                });
+            });
+    
+            const cells = chartGroup.selectAll(".cell")
+                .data(heatmapData, d => d.atk + ":" + d.def);
+    
+            cells.exit().remove();
+    
+            const cellsEnter = cells.enter()
+                .append("g")
+                .attr("class", "cell")
+                .attr("transform", d => {
+                    const x = typeList.indexOf(d.def) * cellSize;
+                    const y = typeList.indexOf(d.atk) * cellSize;
+                    return `translate(${x}, ${y})`;
+                })
+                .on("mouseover", (event, d) => {
+                    const txt = `공격: <strong>${typeKR[d.atk]}</strong><br/>
+                                방어: <strong>${typeKR[d.def]}</strong><br/>
+                                배율: <strong>x${d.value}</strong>`;
+                    tooltip.html(txt)
+                        .style("left", (event.pageX + 12) + "px")
+                        .style("top", (event.pageY + 12) + "px")
+                        .style("opacity", 1);
+                })
+                .on("mousemove", event => {
+                    tooltip
+                        .style("left", (event.pageX + 12) + "px")
+                        .style("top", (event.pageY + 12) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                })
+                .on("click", (event, d) => {
+                    chartGroup.selectAll(".cell").classed("selected", false);
+                    d3.select(event.currentTarget).classed("selected", true);
+                    const currentMode = d3.select("input[name='resultMode']:checked").node().value;
+                    showPokemonList(d.atk, d.def, d.value, currentMode);
+                });
+    
+            cellsEnter.merge(cells).selectAll("*").remove();
+            cellsEnter.merge(cells)
+                    .each(function(d) {
+                    const g = d3.select(this);
+        
+                    if ((strongOnly && d.value < 2) || (weakOnly && d.value > 0.5)) {
+                        g.append("rect")
+                            .attr("class", "cell-bg")
+                            .attr("width", cellSize)
+                            .attr("height", cellSize)
+                            .attr("fill", "#e0e0e0");
+                        return;
+                    }
+        
+                    if (showCovered && !teamTypes.has(d.atk)) {
+                        g.append("rect")
+                            .attr("class", "cell-bg")
+                            .attr("width", cellSize)
+                            .attr("height", cellSize)
+                            .attr("fill", "#e0e0e0");
+                        return;
+                    }
+        
+                    if (showWeakOnly && !teamWeakness.has(d.def)) {
+                        g.append("rect")
+                            .attr("class", "cell-bg")
+                            .attr("width", cellSize)
+                            .attr("height", cellSize)
+                            .attr("fill", "#e0e0e0");
+                        return;
+                    }
+        
+                    g.append("rect")
+                        .attr("class", "cell-bg")
+                        .attr("width", cellSize)
+                        .attr("height", cellSize)
+                        .attr("fill", "#ffffff");
+        
+                    if (d.value === 2) {
+                        g.append("circle")
+                            .attr("class", "icon-circle")
+                            .attr("cx", cellSize / 2)
+                            .attr("cy", cellSize / 2)
+                            .attr("r", cellSize * 0.3);
+                    }
+                    else if (d.value === 0.5) {
+                        const triSize = (cellSize * 0.5) ** 2;
+                        g.append("path")
+                            .attr("class", "icon-triangle")
+                            .attr("d", d3.symbol().type(d3.symbolTriangle).size(triSize)())
+                            .attr("transform", `translate(${cellSize / 2}, ${cellSize / 2 + 2})`);
+                    }
+                    else if (d.value === 0) {
+                        g.append("line")
+                            .attr("class", "icon-cross")
+                            .attr("x1", cellSize * 0.2)
+                            .attr("y1", cellSize * 0.2)
+                            .attr("x2", cellSize * 0.8)
+                            .attr("y2", cellSize * 0.8);
+                        g.append("line")
+                            .attr("class", "icon-cross")
+                            .attr("x1", cellSize * 0.8)
+                            .attr("y1", cellSize * 0.2)
+                            .attr("x2", cellSize * 0.2)
+                            .attr("y2", cellSize * 0.8);
+                    }
+                });
+    
+            const thead = svg.selectAll(".defLabel").data(typeList);
+            thead.enter()
+                .append("g")
+                .attr("class", "defLabel")
+                .merge(thead)
+                .attr("transform", (d, i) => {
+                    const x = xOffset + i * cellSize;
+                    const y = margin.top - labelHeight;
+                    return `translate(${x}, ${y})`;
+                })
+                .each(function(d) {
+                    const g = d3.select(this);
+                    g.selectAll("*").remove();
+    
+                    const fillColor = (showWeakOnly && teamRecords.length > 0 && !teamWeakness.has(d)) ? "#e0e0e0" : typeColorMap[d];
+    
+                    g.append("rect")
+                        .attr("width", cellSize)
+                        .attr("height", labelHeight)
+                        .attr("fill", fillColor);
+    
+                    const abbr = d.charAt(0).toUpperCase() + d.slice(1, 3);
+                    g.append("text")
+                        .attr("x", cellSize / 2)
+                        .attr("y", labelHeight / 2 + 5)
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "#ffffff")
+                        .style("font-weight", "bold")
+                        .text(abbr);
+                });
+            thead.exit().remove();
+    
+            const atks = svg.selectAll(".atkLabel").data(typeList);
+            atks.enter()
+                .append("g")
+                .attr("class", "atkLabel")
+                .merge(atks)
+                .attr("transform", (d, i) => {
+                    const x = margin.left - 120;
+                    const y = yOffset + i * cellSize;
+                    return `translate(${x}, ${y})`;
+                })
+                .each(function(d) {
+                    const g = d3.select(this);
+                    g.selectAll("*").remove();
+    
+                    const fillColor = (showCovered && teamRecords.length > 0 && !teamTypes.has(d)) ? "#e0e0e0" : typeColorMap[d];
+    
+                    g.append("rect")
+                        .attr("width", 120)
+                        .attr("height", cellSize)
+                        .attr("fill", fillColor);
+        
+                    g.append("text")
+                        .attr("x", 10)
+                        .attr("y", cellSize / 2 + 5)
+                        .attr("text-anchor", "start")
+                        .attr("fill", "#ffffff")
+                        .style("font-weight", "bold")
+                        .text(d.charAt(0).toUpperCase() + d.slice(1));
+                });
+                atks.exit().remove();
+    
+                svg.select("#defender-label")
+                    .style("left", (xOffset - 10) + "px")
+                    .style("top", "8px");
+        }
+  
+        function showPokemonList(atk, def, againstValue, mode) {
+            // console.log("[showPokemonList] mode:", mode, "atk:", atk, "def:", def, "against:", againstValue);
+    
+            let comboText = "";
+            if (mode === "def") {
+                comboText = `선택된 조합: ${typeKR[atk]} → ${typeKR[def]} (배율 x${againstValue})`;
+            } 
+            else {
+                comboText = `선택된 조합 (공격 기준): ${typeKR[atk]} 타입 전체 포켓몬`;
+            }
+            selectedComboText.text(comboText);
+            pokemonTableBody.selectAll("tr").remove();
+    
+            d3.csv(csvUrl).then(rawData => {
+
+                const candidates = rawData.map(d => ({
+                    name: d.name,
+                    pokedex: +d.pokedex_number,
+                    type1: d.type1.toLowerCase(),
+                    type2: (d.type2 || "").toLowerCase(),
+                    base_total: +d.base_total,
+                    againstAtk: +d[`against_${(atk === "fighting" ? "fight" : atk)}`]
+                }));
+        
+                let filtered = [];
+                if (mode === "def") {
+                    const candidatesDef = candidates.filter(d =>
+                        d.type1 === def || d.type2 === def
+                    );
+                    if (againstValue >= 2) {
+                        filtered = candidatesDef.filter(d => d.againstAtk >= 2);
+                    } 
+                    else if (againstValue <= 0.5) {
+                        filtered = candidatesDef.filter(d => d.againstAtk <= 0.5);
+                    } 
+                    else {
+                        filtered = candidatesDef.filter(d => d.againstAtk === 1);
+                    }
+                } 
+                else {
+                    filtered = candidates.filter(d =>
+                        d.type1 === atk || d.type2 === atk
+                    );
+                }
+        
+                // console.log("[showPokemonList] 최종 필터된 개체 수:", filtered.length);
+        
+                if (filtered.length === 0) {
+                    const row = pokemonTableBody.append("tr");
+                    row.append("td")
+                        .attr("colspan", 5)
+                        .text("해당 조건에 일치하는 포켓몬이 없습니다.");
+                    return;
+                }
+        
+                filtered.sort((a, b) => b.base_total - a.base_total);
+                filtered.forEach(d => {
+                    const row = pokemonTableBody.append("tr");
+                    row.append("td")
+                        .append("a")
+                        .attr("href", `pokemon.html?name=${encodeURIComponent(d.name)}`)
+                        .text(`${d.name} (#${d.pokedex})`);
+                    row.append("td").text(typeKR[d.type1]);
+                    row.append("td").text(d.type2 ? typeKR[d.type2] : "-");
+                    if (mode === "def") {
+                        row.append("td").text(`x${d.againstAtk}`);
+                    } 
+                    else {
+                        row.append("td").text("-");
+                    }
+                    row.append("td").text(d.base_total);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
