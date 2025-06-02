@@ -10,7 +10,7 @@ Additionally, there is an individual Pokémon detail page and an initial data‐
 ---
 
 📊 Data Files
-pokemon.csv
+[pokemon.csv](https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv)
 
 Contents:
 801 rows × 41 columns scraped from [Serebii.net](http://serebii.net/), covering all seven generations.
