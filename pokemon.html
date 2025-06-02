@@ -261,7 +261,7 @@
             titleEl.text("포켓몬 이름이 전달되지 않았습니다.");
         } 
         else {
-            const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/pokemon.csv";
+            const csvUrl = "https://raw.githubusercontent.com/Nainho/infovis_pokemon/refs/heads/main/data/pokemon.csv";
             d3.csv(csvUrl).then(data => {
                 const record = data.find(d => d.name === pokeName);
                     if (!record) {
